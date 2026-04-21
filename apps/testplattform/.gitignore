@@ -1,0 +1,8 @@
+node_modules
+.next
+next-env.d.ts
+data/
+uploads/
+*.log
+.env*
+!.env.example
