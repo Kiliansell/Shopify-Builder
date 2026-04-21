@@ -8,12 +8,17 @@ export default async function Home() {
   const [artikel] = await db.select({ c: sql<number>`count(*)` }).from(schema.artikel);
   const [auktionen] = await db.select({ c: sql<number>`count(*)` }).from(schema.auktion);
   const [rechnungen] = await db.select({ c: sql<number>`count(*)` }).from(schema.rechnung);
+  const [eingang] = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(schema.fotoEingang)
+    .where(sql`status != 'zugewiesen'`);
 
   const kacheln = [
     { label: "Projekte", wert: projekte.c, href: "/projekte", hint: "Gerichtsverfahren/Versteigerungen" },
     { label: "Artikel", wert: artikel.c, href: "/projekte", hint: "Versteigerbare Positionen" },
     { label: "Auktionen", wert: auktionen.c, href: "/auktionen", hint: "Aktiv + beendet" },
     { label: "Rechnungen", wert: rechnungen.c, href: "/rechnungen", hint: "Standard + Provision" },
+    { label: "Foto-Eingang", wert: eingang.c, href: "/fotos/eingang", hint: "Bulk-Upload + Auto-Zuordnung" },
   ];
 
   return (
@@ -27,7 +32,7 @@ export default async function Home() {
         </p>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {kacheln.map((k) => (
           <Link
             key={k.label}

@@ -34,6 +34,14 @@ export function fotoRelativ(
   return join("fotos", `projekt-${projektId}`, `artikel-${artikelId}`, dateiname);
 }
 
+export function fotoEingangOrdner() {
+  return join(ROOT, "fotos", "_eingang");
+}
+
+export function fotoEingangRelativ(dateiname: string) {
+  return join("fotos", "_eingang", dateiname);
+}
+
 export function dokumentRelativ(dateiname: string) {
   return join("dokumente", dateiname);
 }

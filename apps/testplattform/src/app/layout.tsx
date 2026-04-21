@@ -21,6 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/auktionen" className="hover:text-ziegler-accent">Auktionen</Link>
               <Link href="/rechnungen" className="hover:text-ziegler-accent">Rechnungen</Link>
               <Link href="/dokumente" className="hover:text-ziegler-accent">Dokumente</Link>
+              <Link href="/fotos/eingang" className="hover:text-ziegler-accent">Foto-Eingang</Link>
               <Link href="/kunden" className="hover:text-ziegler-accent">Kunden</Link>
             </nav>
           </div>

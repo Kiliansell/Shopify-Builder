@@ -103,6 +103,95 @@ export const FahrzeugscheinSchema = z.object({
 
 export type FahrzeugscheinExtrakt = z.infer<typeof FahrzeugscheinSchema>;
 
+// ---------- Zod-Schema fuer Produktfoto-Nummer-Extraktion ----------
+export const FotoNummerSchema = z.object({
+  nummer: z
+    .string()
+    .describe(
+      "Die erkannte Positions-/Artikelnummer vom Schild im Foto. Nur Ziffern als String, z.B. '2009'. Leerstring wenn keine Nummer sichtbar.",
+    ),
+  konfidenz: z
+    .enum(["hoch", "mittel", "niedrig"])
+    .describe(
+      "Wie sicher die Zahl-Erkennung ist. 'hoch' bei gedruckter klarer Zahl, 'niedrig' bei handschriftlicher Sauklaue oder Reflektion.",
+    ),
+  beschreibung: z
+    .string()
+    .describe(
+      "Kurze Beschreibung des abgebildeten Artikels in 5-15 Woertern, z.B. 'Rammer E64 Hydraulikhammer, auf Palette'.",
+    ),
+});
+
+export type FotoNummerExtrakt = z.infer<typeof FotoNummerSchema>;
+
+const FOTO_NUMMER_SYSTEM = `Du bist ein Extraktions-Assistent fuer Auktions-Fotos.
+
+Aufgabe: Im uebergebenen Foto befindet sich meistens ein Schild, Klebezettel oder Aufkleber mit einer Positionsnummer (z.B. '2009', '2010', '7021'). Diese Nummer muss erkannt werden, um das Foto dem richtigen Artikel zuzuordnen.
+
+Regeln:
+- Die Nummer kann gedruckt oder handschriftlich sein.
+- Formate: reine Zahl ('2009'), mit Praefix ('Pos 2009', 'Nr. 7021', '#2009').
+- Gib immer JSON gemaess Schema zurueck.
+- Wenn keine Nummer eindeutig erkennbar: leerer String + konfidenz 'niedrig'.
+- Wenn mehrere Nummern sichtbar: die prominenteste waehlen (groesstes Schild).
+- 'beschreibung' ist eine kurze Kategorisierung des abgebildeten Artikels - hilft dem Menschen beim Review.`;
+
+export async function extractFotoNummer(
+  bildBuffer: Buffer,
+  mimeType: string,
+): Promise<FotoNummerExtrakt> {
+  const base64 = bildBuffer.toString("base64");
+  const modelId = process.env.ANTHROPIC_MODEL ?? "claude-opus-4-7";
+
+  const mediaType = (
+    ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mimeType)
+      ? mimeType
+      : "image/jpeg"
+  ) as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+  const response = await client.messages.parse({
+    model: modelId,
+    max_tokens: 512,
+    system: [
+      {
+        type: "text",
+        text: FOTO_NUMMER_SYSTEM,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    thinking: { type: "adaptive" },
+    output_config: {
+      format: zodOutputFormat(FotoNummerSchema),
+    },
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType,
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: "Lies die Positionsnummer vom Schild / Aufkleber im Foto und beschreibe kurz was zu sehen ist.",
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!response.parsed_output) {
+    throw new Error(
+      `Foto-Nummer-Extraktion fehlgeschlagen — stop_reason: ${response.stop_reason}`,
+    );
+  }
+  return response.parsed_output;
+}
+
 const FAHRZEUGSCHEIN_SYSTEM = `Du bist ein Extraktions-Assistent fuer deutsche Zulassungsbescheinigungen Teil 1 (Fahrzeugscheine).
 
 Aufgabe: Extrahiere alle relevanten Fahrzeugdaten aus dem Bild.

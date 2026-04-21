@@ -90,6 +90,28 @@ export const foto = sqliteTable("foto", {
   created_at: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
+// ---------- Foto-Eingang (Bulk-Upload, wartet auf Zuordnung) ----------
+export const fotoEingang = sqliteTable("foto_eingang", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  dateiname: text("dateiname").notNull(),
+  dateipfad: text("dateipfad").notNull(),
+  mime_type: text("mime_type"),
+  groesse_bytes: integer("groesse_bytes"),
+  status: text("status", {
+    enum: ["neu", "analysiert", "zugewiesen", "verworfen"],
+  }).notNull().default("neu"),
+  erkannte_nummer: text("erkannte_nummer"),
+  konfidenz: text("konfidenz", { enum: ["hoch", "mittel", "niedrig"] }),
+  vorschlag_artikel_id: integer("vorschlag_artikel_id").references(
+    () => artikel.id,
+    { onDelete: "set null" },
+  ),
+  fehler: text("fehler"),
+  created_at: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 // ---------- Dokument (generisch: Beschluss, Scan, sonstiges) ----------
 export const dokument = sqliteTable("dokument", {
   id: integer("id").primaryKey({ autoIncrement: true }),
