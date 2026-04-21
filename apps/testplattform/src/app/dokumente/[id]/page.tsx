@@ -35,7 +35,15 @@ export default async function DokumentAnsicht({ params }: { params: Promise<{ id
                 href={`/dokumente/${d.id}/review`}
                 className="rounded-md bg-ziegler-dark px-3 py-1 text-sm text-white hover:bg-black"
               >
-                Auswerten &amp; freigeben
+                Auswerten &amp; Projekt anlegen
+              </Link>
+            )}
+            {d.typ === "fahrzeugschein" && (
+              <Link
+                href={`/dokumente/${d.id}/fahrzeug-review`}
+                className="rounded-md bg-ziegler-dark px-3 py-1 text-sm text-white hover:bg-black"
+              >
+                Auswerten &amp; Artikel anlegen
               </Link>
             )}
             <a

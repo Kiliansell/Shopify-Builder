@@ -48,6 +48,146 @@ export const BeschlussSchema = z.object({
 
 export type BeschlussExtrakt = z.infer<typeof BeschlussSchema>;
 
+// ---------- Zod-Schema fuer Fahrzeugschein-Extraktion ----------
+// Deckt Zulassungsbescheinigung Teil 1 (dt.) ab. Felder werden direkt
+// in artikel + fahrzeug uebernommen.
+export const FahrzeugscheinSchema = z.object({
+  fabrikat: z.string().describe("Hersteller, z.B. 'IVECO', 'MERCEDES-BENZ'."),
+  handelsbezeichnung: z
+    .string()
+    .describe(
+      "Handelsbezeichnung des Fahrzeugs, z.B. 'Sprinter', 'Daily' oder Typ-Code wie 'IS70C12BA/TR'.",
+    ),
+  typ: z.string().describe("Typ / Variante / Version, z.B. 'CT11C1CC'."),
+  fahrzeugklasse: z
+    .string()
+    .describe(
+      "Fahrzeugklasse nach EU-Richtlinie, z.B. 'N2' (LKW), 'N1', 'M1', 'O1'.",
+    ),
+  aufbau: z
+    .string()
+    .describe(
+      "Art des Aufbaus / Zweckbestimmung, z.B. 'BA Bergungs-/Abschleppfz'.",
+    ),
+  fin: z.string().describe("Fahrzeug-Identifizierungs-Nummer (FIN/VIN, 17-stellig)."),
+  erstzulassung: z
+    .string()
+    .describe("Datum der Erstzulassung im ISO-Format YYYY-MM-DD."),
+  hsn: z.string().describe("Herstellerschluesselnummer (4-stellig)."),
+  tsn: z
+    .string()
+    .describe("Typschluesselnummer (3-stellig, manchmal mit Zusatzbuchstaben)."),
+  kraftstoff: z.string().describe("Kraftstoffart, z.B. 'Diesel', 'Benzin', 'Elektro'."),
+  hubraum_ccm: z
+    .number()
+    .describe("Hubraum in Kubikzentimeter, z.B. 2998."),
+  leistung_kw: z.number().describe("Nennleistung in kW, z.B. 150."),
+  leergewicht_kg: z.number().describe("Leermasse in Kilogramm."),
+  zulaessige_gesamtmasse_kg: z
+    .number()
+    .describe("Technisch zulaessige Gesamtmasse in Kilogramm."),
+  kennzeichen: z
+    .string()
+    .describe(
+      "Amtliches Kennzeichen, falls sichtbar. Leerstring wenn nicht erkennbar.",
+    ),
+  beschreibung_frei: z
+    .string()
+    .describe(
+      "Freitext-Zusatzinformationen/Ausstattung aus dem Feld 22 (z.B. 'M. SCHIEBEPLATEAU FA. TREVOR, MIT SEILWINDE').",
+    ),
+  konfidenz: z
+    .enum(["hoch", "mittel", "niedrig"])
+    .describe("Gesamt-Konfidenz der Extraktion."),
+});
+
+export type FahrzeugscheinExtrakt = z.infer<typeof FahrzeugscheinSchema>;
+
+const FAHRZEUGSCHEIN_SYSTEM = `Du bist ein Extraktions-Assistent fuer deutsche Zulassungsbescheinigungen Teil 1 (Fahrzeugscheine).
+
+Aufgabe: Extrahiere alle relevanten Fahrzeugdaten aus dem Bild.
+
+Felder im deutschen Fahrzeugschein:
+- Feld A: Amtliches Kennzeichen
+- Feld B: Datum der Erstzulassung
+- Feld D.1: Marke (Fabrikat)
+- Feld D.2: Typ / Variante / Version
+- Feld D.3: Handelsbezeichnung
+- Feld E: FIN (Fahrzeug-Identifizierungs-Nummer)
+- Feld J: Fahrzeugklasse (z.B. N2, N1, M1, O1)
+- Feld P.1: Hubraum in ccm
+- Feld P.2: Nennleistung in kW
+- Feld P.3: Kraftstoffart
+- Feld G: Leermasse
+- Feld F.1: Technisch zulaessige Gesamtmasse
+- Feld 2.1: HSN (4-stellig)
+- Feld 2.2: TSN
+- Feld 22: Zusatz-Beschreibung / Ausstattung
+
+Regeln:
+- Gib IMMER JSON gemaess Schema zurueck.
+- Datumswerte als ISO YYYY-MM-DD.
+- Massen als ganze Zahl in kg, Leistung als ganze Zahl in kW, Hubraum in ccm.
+- Felder die unlesbar/nicht sichtbar sind: leerer String / 0 und 'konfidenz' herabsetzen.
+- Bilder koennen aus WhatsApp stammen (niedrige Aufloesung, schraeg fotografiert) — trotzdem sorgfaeltig lesen.`;
+
+export async function extractFahrzeugschein(
+  bildBuffer: Buffer,
+  mimeType: string,
+): Promise<FahrzeugscheinExtrakt> {
+  const base64 = bildBuffer.toString("base64");
+  const modelId = process.env.ANTHROPIC_MODEL ?? "claude-opus-4-7";
+
+  // Nur Images, die Claude Vision unterstuetzt
+  const mediaType = (
+    ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mimeType)
+      ? mimeType
+      : "image/jpeg"
+  ) as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+  const response = await client.messages.parse({
+    model: modelId,
+    max_tokens: 2048,
+    system: [
+      {
+        type: "text",
+        text: FAHRZEUGSCHEIN_SYSTEM,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    thinking: { type: "adaptive" },
+    output_config: {
+      format: zodOutputFormat(FahrzeugscheinSchema),
+    },
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType,
+              data: base64,
+            },
+          },
+          {
+            type: "text",
+            text: "Extrahiere alle Felder aus diesem Fahrzeugschein gemaess Schema. Bei unlesbaren Feldern: leerer String oder 0 und Konfidenz anpassen.",
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!response.parsed_output) {
+    throw new Error(
+      `Fahrzeugschein-Extraktion fehlgeschlagen — stop_reason: ${response.stop_reason}`,
+    );
+  }
+  return response.parsed_output;
+}
+
 const SYSTEM_PROMPT = `Du bist ein Extraktions-Assistent fuer deutsche Insolvenz-Beschluesse.
 
 Aufgabe: Extrahiere strukturierte Felder aus dem uebergebenen Beschluss-PDF.

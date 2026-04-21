@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql, asc } from "drizzle-orm";
 import { eur, datum } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +14,21 @@ export default async function ProjektDetail({ params }: { params: Promise<{ id: 
   if (!p) notFound();
 
   const artikel = await db
-    .select()
+    .select({
+      id: schema.artikel.id,
+      global_pos_nr: schema.artikel.global_pos_nr,
+      lokale_pos_nr: schema.artikel.lokale_pos_nr,
+      bezeichnung: schema.artikel.bezeichnung,
+      zusatzinfo: schema.artikel.zusatzinfo,
+      auktionsstartwert: schema.artikel.auktionsstartwert,
+      fortfuehrungswert: schema.artikel.fortfuehrungswert,
+      ist_fahrzeug: schema.artikel.ist_fahrzeug,
+      foto_count: sql<number>`(select count(*) from foto where foto.artikel_id = artikel.id)`,
+      erstes_foto_id: sql<number | null>`(select id from foto where foto.artikel_id = artikel.id order by reihenfolge asc limit 1)`,
+    })
     .from(schema.artikel)
     .where(eq(schema.artikel.projekt_id, projektId))
-    .orderBy(schema.artikel.lokale_pos_nr);
+    .orderBy(asc(schema.artikel.lokale_pos_nr));
 
   const dokumente = await db
     .select()
@@ -79,24 +90,60 @@ export default async function ProjektDetail({ params }: { params: Promise<{ id: 
           <table className="min-w-full divide-y text-sm">
             <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
               <tr>
+                <th className="px-4 py-2">Foto</th>
                 <th className="px-4 py-2">Pos</th>
                 <th className="px-4 py-2">Bezeichnung</th>
                 <th className="px-4 py-2">Zusatz</th>
                 <th className="px-4 py-2 text-right">Startwert</th>
                 <th className="px-4 py-2 text-right">Fortfuehrung</th>
                 <th className="px-4 py-2">Typ</th>
+                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {artikel.map((a) => (
                 <tr key={a.id} className="hover:bg-neutral-50">
-                  <td className="px-4 py-2 font-mono">
-                    {a.lokale_pos_nr} <span className="text-neutral-400">/ {a.global_pos_nr}</span>
+                  <td className="px-3 py-2">
+                    {a.erstes_foto_id ? (
+                      <img
+                        src={`/api/fotos/${a.erstes_foto_id}/file`}
+                        alt=""
+                        className="h-12 w-12 rounded border object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded border bg-neutral-50 text-xs text-neutral-400">
+                        -
+                      </div>
+                    )}
                   </td>
-                  <td className="px-4 py-2">{a.bezeichnung}</td>
-                  <td className="px-4 py-2 text-neutral-600">{a.zusatzinfo ?? "-"}</td>
-                  <td className="px-4 py-2 text-right font-mono">{eur(a.auktionsstartwert)}</td>
-                  <td className="px-4 py-2 text-right font-mono">{eur(a.fortfuehrungswert)}</td>
+                  <td className="px-4 py-2 font-mono">
+                    {a.lokale_pos_nr}{" "}
+                    <span className="text-neutral-400">
+                      / {a.global_pos_nr}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    <Link
+                      href={`/projekte/${p.id}/artikel/${a.id}`}
+                      className="font-medium text-ziegler-accent hover:underline"
+                    >
+                      {a.bezeichnung}
+                    </Link>
+                    {a.foto_count > 0 && (
+                      <span className="ml-2 text-xs text-neutral-500">
+                        ({a.foto_count} Foto{a.foto_count !== 1 ? "s" : ""})
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-neutral-600">
+                    {a.zusatzinfo ?? "-"}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    {eur(a.auktionsstartwert)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    {eur(a.fortfuehrungswert)}
+                  </td>
                   <td className="px-4 py-2">
                     {a.ist_fahrzeug ? (
                       <span className="rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">
@@ -106,11 +153,22 @@ export default async function ProjektDetail({ params }: { params: Promise<{ id: 
                       <span className="text-neutral-400">Standard</span>
                     )}
                   </td>
+                  <td className="px-4 py-2 text-right">
+                    <Link
+                      href={`/projekte/${p.id}/artikel/${a.id}`}
+                      className="text-xs text-neutral-500 hover:text-ziegler-accent"
+                    >
+                      Details →
+                    </Link>
+                  </td>
                 </tr>
               ))}
               {artikel.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-neutral-500">
+                  <td
+                    colSpan={8}
+                    className="px-4 py-6 text-center text-neutral-500"
+                  >
                     Keine Artikel erfasst.
                   </td>
                 </tr>
