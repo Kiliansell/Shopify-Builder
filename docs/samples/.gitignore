@@ -1,0 +1,26 @@
+# Alle Binärformate in diesem Ordner standardmäßig ignorieren,
+# um zu verhindern, dass nicht-anonymisierte Dokumente in Git landen.
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.heic
+*.docx
+*.xlsx
+
+# Explizit anonymisierte Dateien werden committet.
+# Präfix ANON_ bedeutet: "Anonymisierung wurde geprüft und bestätigt."
+!ANON_*.pdf
+!ANON_*.png
+!ANON_*.jpg
+!ANON_*.jpeg
+!ANON_*.tif
+!ANON_*.tiff
+!ANON_*.docx
+!ANON_*.xlsx
+
+# README und .gitignore immer tracken
+!README.md
+!.gitignore
