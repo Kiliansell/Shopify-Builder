@@ -1,10 +1,26 @@
 import { db, schema } from "./index";
+import { copyFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { fotoOrdner, fotoRelativ } from "@/lib/storage";
 
 async function seed() {
   console.log("Seeding Datenbank...");
 
-  // Firma (aus Rechnungs-Briefkopf)
+  // ---- Idempotent: alle Tabellen in Dependency-Reihenfolge leeren ----
+  await db.delete(schema.gebot);
+  await db.delete(schema.auktion);
+  await db.delete(schema.rechnungPosition);
+  await db.delete(schema.rechnung);
+  await db.delete(schema.foto);
+  await db.delete(schema.fotoEingang);
+  await db.delete(schema.fahrzeug);
+  await db.delete(schema.dokument);
+  await db.delete(schema.artikel);
+  await db.delete(schema.projekt);
+  await db.delete(schema.kunde);
   await db.delete(schema.firma);
+
+  // Firma (aus Rechnungs-Briefkopf)
   await db.insert(schema.firma).values({
     name: "Ziegler Verwaltungs GmbH & Co. Treuhand KG",
     strasse: "Enscheder Str. 19",
@@ -104,6 +120,146 @@ async function seed() {
     tuev_bis: "2028-02-28",
   });
 
+  // ------------- NEUE ARTIKEL aus hochgeladenen Samples -------------
+
+  // Pos 28 — Gusseisen-Pfannen (Sample-Foto 1)
+  const [pfannen] = await db
+    .insert(schema.artikel)
+    .values({
+      projekt_id: p.id,
+      global_pos_nr: 28,
+      lokale_pos_nr: lokalePos++,
+      anzahl: 2,
+      bezeichnung: "Gusseisen-Pfannen (Gastro)",
+      langtext:
+        "Zwei Gusseisen-Pfannen aus Gastronomie-Kueche.\nGrosses Modell mit Zwischenwand.\nMit Gebrauchsspuren, voll funktionsfaehig.",
+      zusatzinfo: "2 Stueck, schwere Gastro-Ausfuehrung",
+      zustand: "gebraucht",
+      auktionsstartwert: 30,
+      stilllegungswert: 20,
+      fortfuehrungswert: 60,
+      steuersatz: 19,
+    })
+    .returning();
+
+  // Pos 10 — Rote Diner-Sitzbaenke (Sample-Foto 2)
+  const [baenke] = await db
+    .insert(schema.artikel)
+    .values({
+      projekt_id: p.id,
+      global_pos_nr: 10,
+      lokale_pos_nr: lokalePos++,
+      anzahl: 2,
+      bezeichnung: "Diner-Sitzbank rot (Paar)",
+      langtext:
+        "Paar roter Diner-/Gastro-Sitzbaenke mit Riffelpolster.\nHolzunterbau, Kunstleder-Bezug.\nGebrauchsspuren, Polster gut.\n\nIdeal fuer Gastronomie, Eisdiele, Diner-Einrichtung.",
+      zusatzinfo: "Paar, ca. 150 cm breit",
+      zustand: "gebraucht",
+      auktionsstartwert: 80,
+      stilllegungswert: 60,
+      fortfuehrungswert: 180,
+      steuersatz: 19,
+    })
+    .returning();
+
+  // Pos 7022 — IVECO LKW mit Schiebeplateau (aus hochgeladenem Fahrzeugschein)
+  const [iveco] = await db
+    .insert(schema.artikel)
+    .values({
+      projekt_id: p.id,
+      global_pos_nr: 7022,
+      lokale_pos_nr: lokalePos++,
+      anzahl: 1,
+      bezeichnung: "IVECO IS70C12BA/TR Abschlepp-LKW mit Schiebeplateau",
+      langtext: [
+        "Erstzulassung: 18.07.2019",
+        "Fahrzeugklasse: N2 (LKW > 3,5 t)",
+        "HSN/TSN: 4192 / CT11C1CC",
+        "Hubraum: 2998 ccm",
+        "Leistung: 150 kW (204 PS)",
+        "Kraftstoff: Diesel, EURO 6",
+        "Leergewicht: 2500 kg",
+        "Zul. Gesamtmasse: 5350 kg",
+        "Zul. Zuggesamtgewicht: 10.500 kg",
+        "Reifen: 225/75R16 121/-R (vorn) / 225/75R16 -/120R (hinten)",
+        "",
+        "Aufbau:",
+        "- Schiebeplateau FA. TREVOR, Typ ZP30-C1, Fabr.-Nr. 1903.8 (Bj. 03/19)",
+        "- Mit Seilwinde FA. RAMSEY",
+        "- Geeignet fuer Pannenhilfe gem. E3-2007/46, §52 Abs. 4",
+        "- Aufruestung gem. Pruefbericht Nr. 11-0003-0-CC-B-WG-00 (TUEV SUED)",
+        "",
+        "Hersteller Aufbau: FAHRZEUGBAU MEIER GMBH",
+      ].join("\n"),
+      zusatzinfo: "BA Bergungs-/Abschleppfahrzeug mit Seilwinde",
+      zustand: "gebraucht",
+      standort: "48477 Hoerstel, Westfalenstrasse 44",
+      auktionsstartwert: 18000,
+      stilllegungswert: 14000,
+      fortfuehrungswert: 25000,
+      steuersatz: 19,
+      ist_fahrzeug: true,
+    })
+    .returning();
+
+  await db.insert(schema.fahrzeug).values({
+    artikel_id: iveco.id,
+    fabrikat: "IVECO",
+    typ: "IS70C12BA/TR (CT11C1CC)",
+    fin: "ZCFC170D3K5306775",
+    erstzulassung: "2019-07-18",
+  });
+
+  // ---- Fotos der beiden Artikel aus dem Sample-Ordner einspielen ----
+  const sampleDir = join(
+    process.cwd(),
+    "..",
+    "..",
+    "docs",
+    "samples",
+    "eingehend",
+    "produktfotos",
+  );
+
+  async function kopiereFoto(
+    sampleFile: string,
+    artikelId: number,
+    zielName: string,
+    reihenfolge: number,
+  ) {
+    const quelle = join(sampleDir, sampleFile);
+    const ziel = fotoOrdner(p.id, artikelId);
+    await mkdir(ziel, { recursive: true });
+    const zielAbsolut = join(ziel, zielName);
+    try {
+      await copyFile(quelle, zielAbsolut);
+      await db.insert(schema.foto).values({
+        artikel_id: artikelId,
+        dateipfad: fotoRelativ(p.id, artikelId, zielName),
+        reihenfolge,
+      });
+      console.log(`  Foto kopiert: ${zielName} -> Artikel #${artikelId}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`  Foto uebersprungen (Sample fehlt): ${sampleFile} — ${msg}`);
+    }
+  }
+
+  await kopiereFoto(
+    "WhatsApp Image 2026-04-21 at 14.19.56 (1).jpeg",
+    pfannen.id,
+    "pfanne-28.jpeg",
+    1,
+  );
+  await kopiereFoto(
+    "WhatsApp Image 2026-04-21 at 14.19.56 (2).jpeg",
+    baenke.id,
+    "bank-10.jpeg",
+    1,
+  );
+
+  // ------------- Ende neue Artikel -------------
+
   // Kunde (aus Rechnungs-Sample)
   const [k] = await db
     .insert(schema.kunde)
@@ -120,9 +276,25 @@ async function seed() {
     })
     .returning();
 
+  // Zweiter Kunde fuer mehr Leben in den Listen
+  await db.insert(schema.kunde).values({
+    kunden_nr: "22479/10048",
+    bietername: "hart_marcello",
+    anrede: "Herr",
+    vorname: "Marcello",
+    nachname: "Hart",
+    email: "marcello.hart@example.com",
+    telefon: "+49 151 23456789",
+    strasse: "Industriestrasse 5",
+    plz: "48477",
+    ort: "Hoerstel",
+  });
+
   // Auktion fuer den Anhaenger (laeuft bald)
   const now = new Date();
   const inTenMinutes = new Date(now.getTime() + 10 * 60_000);
+  const inSixDays = new Date(now.getTime() + 6 * 24 * 3600 * 1000);
+
   await db.insert(schema.auktion).values({
     artikel_id: anhaenger.id,
     start_ts: now,
@@ -131,6 +303,34 @@ async function seed() {
     aktuelles_gebot: 1200,
     status: "laeuft",
   });
+
+  // Auktionen fuer die neuen Artikel — laufen in ein paar Tagen aus
+  await db.insert(schema.auktion).values([
+    {
+      artikel_id: pfannen.id,
+      start_ts: now,
+      end_ts: new Date(inSixDays.getTime() + 30 * 1000),
+      startpreis: 30,
+      aktuelles_gebot: 30,
+      status: "laeuft",
+    },
+    {
+      artikel_id: baenke.id,
+      start_ts: now,
+      end_ts: new Date(inSixDays.getTime() + 60 * 1000),
+      startpreis: 80,
+      aktuelles_gebot: 80,
+      status: "laeuft",
+    },
+    {
+      artikel_id: iveco.id,
+      start_ts: now,
+      end_ts: new Date(inSixDays.getTime() + 90 * 1000),
+      startpreis: 18000,
+      aktuelles_gebot: 18000,
+      status: "laeuft",
+    },
+  ]);
 
   // Rechnung (aus Sample rekonstruiert)
   const [r] = await db
