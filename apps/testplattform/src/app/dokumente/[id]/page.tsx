@@ -22,20 +22,30 @@ export default async function DokumentAnsicht({ params }: { params: Promise<{ id
       </Link>
 
       <div className="rounded-lg border bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <div>
             <div className="font-medium">{d.dateiname}</div>
             <div className="text-xs text-neutral-500">
               {d.typ} · {Math.round((d.groesse_bytes ?? 0) / 1024)} KB
             </div>
           </div>
-          <a
-            href={url}
-            download={d.dateiname}
-            className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-50"
-          >
-            Download
-          </a>
+          <div className="flex gap-2">
+            {d.typ === "beschluss" && (
+              <Link
+                href={`/dokumente/${d.id}/review`}
+                className="rounded-md bg-ziegler-dark px-3 py-1 text-sm text-white hover:bg-black"
+              >
+                Auswerten &amp; freigeben
+              </Link>
+            )}
+            <a
+              href={url}
+              download={d.dateiname}
+              className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-50"
+            >
+              Download
+            </a>
+          </div>
         </div>
 
         {istPdf && (

@@ -53,10 +53,29 @@ export default async function Home() {
         </ul>
       </section>
 
+      <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-6">
+        <h2 className="text-lg font-semibold">Neu in Sprint 2</h2>
+        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-neutral-700">
+          <li>
+            Beschluss-Upload {">"} Claude API (<code>claude-opus-4-7</code>) mit
+            JSON-Schema-Extraktion {">"} Side-by-Side Review-UI {">"} Projekt
+            anlegen per 1 Klick.
+          </li>
+          <li>
+            Test: PDF unter <Link href="/dokumente/upload" className="text-ziegler-accent underline">/dokumente/upload</Link>{" "}
+            hochladen (Typ: Beschluss), dann Auswerten &amp; freigeben.
+          </li>
+          <li>
+            Braucht <code>ANTHROPIC_API_KEY</code> in{" "}
+            <code>.env.local</code>.
+          </li>
+        </ul>
+      </section>
+
       <section className="rounded-lg border bg-amber-50 p-6">
         <h2 className="text-lg font-semibold">Noch nicht implementiert</h2>
         <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-neutral-700">
-          <li>Echter Beschluss-Parser (LLM-Integration als Stub vorbereitet)</li>
+          <li>Fahrzeugschein-OCR (Azure Document Intelligence)</li>
           <li>Foto-Upload mit Drag-&amp;-Drop-Sortierung</li>
           <li>PDF-Export (derzeit nur HTML-Vorschau)</li>
           <li>WhatsApp-Bot, Social-Posting, Email-Versand</li>
