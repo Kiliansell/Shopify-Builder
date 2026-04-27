@@ -1,11 +1,28 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { eq, desc, sql, asc } from "drizzle-orm";
 import { eur, datum } from "@/lib/format";
+import { projektKlonen, artikelKlonen } from "@/lib/clone";
+import { InlineWertCell } from "./inline-edit";
 
 export const dynamic = "force-dynamic";
+
+async function projektKlonenAction(form: FormData) {
+  "use server";
+  const projektId = Number(form.get("projekt_id"));
+  const neueId = await projektKlonen(projektId);
+  redirect(`/projekte/${neueId}`);
+}
+
+async function artikelKlonenAction(form: FormData) {
+  "use server";
+  const artikelId = Number(form.get("artikel_id"));
+  const projektId = Number(form.get("projekt_id"));
+  const neueId = await artikelKlonen(artikelId);
+  redirect(`/projekte/${projektId}/artikel/${neueId}`);
+}
 
 export default async function ProjektDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,14 +55,26 @@ export default async function ProjektDetail({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-8">
-      <div>
-        <Link href="/projekte" className="text-sm text-neutral-500 hover:text-ziegler-accent">
-          ← Projekte
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">
-          <span className="font-mono text-ziegler-accent">{p.aktenzeichen}</span>
-          <span className="ml-3 text-neutral-700">— {p.schuldner_firma}</span>
-        </h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link href="/projekte" className="text-sm text-neutral-500 hover:text-ziegler-accent">
+            ← Projekte
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold">
+            <span className="font-mono text-ziegler-accent">{p.aktenzeichen}</span>
+            <span className="ml-3 text-neutral-700">— {p.schuldner_firma}</span>
+          </h1>
+        </div>
+        <form action={projektKlonenAction}>
+          <input type="hidden" name="projekt_id" value={p.id} />
+          <button
+            type="submit"
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50"
+            title="Projekt mit allen Artikeln duplizieren (ohne Fotos/Auktionen)"
+          >
+            Projekt duplizieren
+          </button>
+        </form>
       </div>
 
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -138,11 +167,19 @@ export default async function ProjektDetail({ params }: { params: Promise<{ id: 
                   <td className="px-4 py-2 text-neutral-600">
                     {a.zusatzinfo ?? "-"}
                   </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {eur(a.auktionsstartwert)}
+                  <td className="px-4 py-2 text-right">
+                    <InlineWertCell
+                      artikelId={a.id}
+                      feld="auktionsstartwert"
+                      initial={a.auktionsstartwert}
+                    />
                   </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {eur(a.fortfuehrungswert)}
+                  <td className="px-4 py-2 text-right">
+                    <InlineWertCell
+                      artikelId={a.id}
+                      feld="fortfuehrungswert"
+                      initial={a.fortfuehrungswert}
+                    />
                   </td>
                   <td className="px-4 py-2">
                     {a.ist_fahrzeug ? (
@@ -154,12 +191,25 @@ export default async function ProjektDetail({ params }: { params: Promise<{ id: 
                     )}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <Link
-                      href={`/projekte/${p.id}/artikel/${a.id}`}
-                      className="text-xs text-neutral-500 hover:text-ziegler-accent"
-                    >
-                      Details →
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <form action={artikelKlonenAction}>
+                        <input type="hidden" name="artikel_id" value={a.id} />
+                        <input type="hidden" name="projekt_id" value={p.id} />
+                        <button
+                          type="submit"
+                          className="rounded px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-100 hover:text-ziegler-accent"
+                          title="Artikel duplizieren"
+                        >
+                          ⎘
+                        </button>
+                      </form>
+                      <Link
+                        href={`/projekte/${p.id}/artikel/${a.id}`}
+                        className="text-xs text-neutral-500 hover:text-ziegler-accent"
+                      >
+                        Details →
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

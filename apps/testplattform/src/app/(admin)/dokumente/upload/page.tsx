@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { DropZone } from "@/components/drop-zone";
 import * as schema from "@/db/schema";
 import { redirect } from "next/navigation";
 import { writeFile, mkdir } from "fs/promises";
@@ -82,16 +83,17 @@ export default async function DokumentUpload({
             <option value="sonstiges">Sonstiges</option>
           </select>
         </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium">Datei (PDF, JPG, PNG)</span>
-          <input
+        <div>
+          <span className="mb-1 block text-sm font-medium">Datei</span>
+          <DropZone
             name="datei"
-            type="file"
             accept=".pdf,.jpg,.jpeg,.png"
+            multiple={false}
             required
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            hint="PDF / JPG / PNG hierher ziehen"
+            subHint="Beschluss, Fahrzeugschein, Artikelliste, Gutachten, Rechnung"
           />
-        </label>
+        </div>
         <button
           type="submit"
           className="rounded-md bg-ziegler-dark px-4 py-2 text-sm text-white hover:bg-black"

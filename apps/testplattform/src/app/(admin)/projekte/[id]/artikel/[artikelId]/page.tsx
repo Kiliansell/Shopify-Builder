@@ -8,6 +8,7 @@ import * as schema from "@/db/schema";
 import { eur } from "@/lib/format";
 import { absolutVonRelativ, fotoOrdner, fotoRelativ } from "@/lib/storage";
 import { join } from "path";
+import { DropZone } from "@/components/drop-zone";
 
 export const dynamic = "force-dynamic";
 
@@ -196,22 +197,17 @@ export default async function ArtikelDetail({
         >
           <input type="hidden" name="projekt_id" value={projektId} />
           <input type="hidden" name="artikel_id" value={artId} />
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">
-              Fotos hinzufuegen (mehrere auf einmal moeglich)
-            </span>
-            <input
-              name="fotos"
-              type="file"
-              accept="image/*"
-              multiple
-              required
-              className="w-full rounded-md border px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-ziegler-dark file:px-3 file:py-1.5 file:text-sm file:text-white hover:file:bg-black"
-            />
-          </label>
+          <DropZone
+            name="fotos"
+            accept="image/*"
+            multiple
+            required
+            hint="Produktfotos hierher ziehen"
+            subHint="Mehrere auf einmal — Reihenfolge bestimmt spaetere Anzeige auf der oeffentlichen Seite"
+          />
           <button
             type="submit"
-            className="mt-3 rounded-md bg-ziegler-accent px-4 py-2 text-sm text-white hover:opacity-90"
+            className="mt-4 rounded-md bg-ziegler-accent px-4 py-2 text-sm text-white hover:opacity-90"
           >
             Hochladen
           </button>
