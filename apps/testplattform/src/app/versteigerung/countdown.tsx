@@ -53,17 +53,17 @@ export function PreciseCountdown({ endMs }: { endMs: number }) {
 
   if (diff <= 0)
     return (
-      <div className="font-serif text-3xl text-ink-50">Auktion beendet</div>
+      <div className=" text-3xl text-ink-50">Auktion beendet</div>
     );
 
   return (
     <div className="flex items-baseline gap-3 font-mono tabular-nums">
       <TimeBlock n={tage} label="Tage" />
-      <span className="text-2xl text-gold-500">:</span>
+      <span className="text-2xl text-ziegler_blau-500">:</span>
       <TimeBlock n={std} label="Std" />
-      <span className="text-2xl text-gold-500">:</span>
+      <span className="text-2xl text-ziegler_blau-500">:</span>
       <TimeBlock n={min} label="Min" />
-      <span className="text-2xl text-gold-500">:</span>
+      <span className="text-2xl text-ziegler_blau-500">:</span>
       <TimeBlock n={sec} label="Sek" />
     </div>
   );

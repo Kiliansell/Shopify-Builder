@@ -5,10 +5,12 @@ import { randomUUID } from "crypto";
 import { eq, asc, sql } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { eur } from "@/lib/format";
+import { eur, datumZeit } from "@/lib/format";
 import { absolutVonRelativ, fotoOrdner, fotoRelativ } from "@/lib/storage";
 import { join } from "path";
 import { DropZone } from "@/components/drop-zone";
+import { artikelSichtbarkeitSetzen, auktionBeenden } from "@/lib/lifecycle";
+import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +82,31 @@ async function moveFoto(form: FormData) {
   redirect(`/projekte/${projektId}/artikel/${artikelId}`);
 }
 
+async function sichtbarkeitToggleAction(form: FormData) {
+  "use server";
+  const artikelId = Number(form.get("artikel_id"));
+  const projektId = Number(form.get("projekt_id"));
+  const neu = String(form.get("sichtbarkeit")) as
+    | "entwurf"
+    | "vorschau"
+    | "live"
+    | "archiv";
+  await artikelSichtbarkeitSetzen(artikelId, neu);
+  revalidatePath(`/projekte/${projektId}/artikel/${artikelId}`);
+  revalidatePath("/versteigerung");
+  revalidatePath("/versteigerung/auktionen");
+}
+
+async function auktionBeendenAction(form: FormData) {
+  "use server";
+  const auktionId = Number(form.get("auktion_id"));
+  const projektId = Number(form.get("projekt_id"));
+  const artikelId = Number(form.get("artikel_id"));
+  await auktionBeenden(auktionId);
+  revalidatePath(`/projekte/${projektId}/artikel/${artikelId}`);
+  revalidatePath(`/versteigerung/auktionen/${auktionId}`);
+}
+
 async function deleteFoto(form: FormData) {
   "use server";
   const fotoId = Number(form.get("foto_id"));
@@ -128,6 +155,12 @@ export default async function ArtikelDetail({
     .from(schema.fahrzeug)
     .where(eq(schema.fahrzeug.artikel_id, artId));
 
+  const auktionen = await db
+    .select()
+    .from(schema.auktion)
+    .where(eq(schema.auktion.artikel_id, artId))
+    .orderBy(asc(schema.auktion.start_ts));
+
   return (
     <div className="space-y-6">
       <Link
@@ -137,15 +170,58 @@ export default async function ArtikelDetail({
         ← Projekt
       </Link>
 
-      <div>
-        <div className="text-sm text-neutral-500">
-          Pos {a.lokale_pos_nr}
-          <span className="ml-2 text-neutral-400">/ {a.global_pos_nr}</span>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm text-neutral-500">
+            Pos {a.lokale_pos_nr}
+            <span className="ml-2 text-neutral-400">/ {a.global_pos_nr}</span>
+          </div>
+          <h1 className="text-2xl font-semibold">{a.bezeichnung}</h1>
+          {a.zusatzinfo && (
+            <p className="mt-1 text-neutral-600">{a.zusatzinfo}</p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <SichtbarkeitsBadge wert={a.sichtbarkeit} />
+            {a.sichtbarkeit === "live" && (
+              <a
+                href={`/versteigerung/auktionen/${auktionen[0]?.id ?? ""}`}
+                target="_blank"
+                rel="noopener"
+                className="text-xs text-ziegler-accent hover:underline"
+              >
+                ↗ Live-Ansicht
+              </a>
+            )}
+          </div>
         </div>
-        <h1 className="text-2xl font-semibold">{a.bezeichnung}</h1>
-        {a.zusatzinfo && (
-          <p className="mt-1 text-neutral-600">{a.zusatzinfo}</p>
-        )}
+        <div className="flex flex-col gap-2">
+          {a.sichtbarkeit !== "live" && (
+            <form action={sichtbarkeitToggleAction}>
+              <input type="hidden" name="artikel_id" value={a.id} />
+              <input type="hidden" name="projekt_id" value={projektId} />
+              <input type="hidden" name="sichtbarkeit" value="live" />
+              <button
+                type="submit"
+                className="rounded-md bg-ziegler-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                ↗ Veröffentlichen
+              </button>
+            </form>
+          )}
+          {a.sichtbarkeit === "live" && (
+            <form action={sichtbarkeitToggleAction}>
+              <input type="hidden" name="artikel_id" value={a.id} />
+              <input type="hidden" name="projekt_id" value={projektId} />
+              <input type="hidden" name="sichtbarkeit" value="entwurf" />
+              <button
+                type="submit"
+                className="rounded-md border px-4 py-2 text-sm hover:bg-neutral-50"
+              >
+                Auf Entwurf zurücksetzen
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       {/* Werte */}
@@ -155,6 +231,61 @@ export default async function ArtikelDetail({
         <Wert titel="Startwert" wert={eur(a.auktionsstartwert)} />
         <Wert titel="Neupreis" wert={eur(a.neupreis)} />
       </section>
+
+      {auktionen.length > 0 && (
+        <section className="rounded-lg border bg-white p-5">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Auktionen
+          </h3>
+          <ul className="divide-y text-sm">
+            {auktionen.map((au) => (
+              <li
+                key={au.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+              >
+                <div>
+                  <div className="font-medium">
+                    {au.status === "laeuft"
+                      ? "Läuft"
+                      : au.status === "beendet"
+                        ? "Beendet"
+                        : au.status === "geplant"
+                          ? "Geplant"
+                          : "Abgebrochen"}
+                  </div>
+                  <div className="text-xs text-neutral-500">
+                    Endet {datumZeit(au.end_ts)} · Startpreis {eur(au.startpreis)}
+                  </div>
+                  {au.status === "beendet" && au.zuschlag_preis && (
+                    <div className="mt-1 text-xs text-emerald-700">
+                      Zuschlag: {eur(au.zuschlag_preis)}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm">
+                    {eur(au.aktuelles_gebot ?? au.startpreis)}
+                  </span>
+                  {au.status === "laeuft" && (
+                    <form action={auktionBeendenAction}>
+                      <input type="hidden" name="auktion_id" value={au.id} />
+                      <input type="hidden" name="projekt_id" value={projektId} />
+                      <input type="hidden" name="artikel_id" value={a.id} />
+                      <button
+                        type="submit"
+                        className="rounded-md border px-3 py-1.5 text-xs hover:bg-neutral-50"
+                        title="Auktion vorzeitig beenden und Gewinner ermitteln"
+                      >
+                        Beenden + Zuschlag
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {a.langtext && (
         <section className="rounded-lg border bg-white p-5">
@@ -271,6 +402,28 @@ export default async function ArtikelDetail({
         )}
       </section>
     </div>
+  );
+}
+
+function SichtbarkeitsBadge({ wert }: { wert: string }) {
+  const map: Record<string, string> = {
+    entwurf: "bg-neutral-200 text-neutral-700",
+    vorschau: "bg-amber-100 text-amber-800",
+    live: "bg-emerald-100 text-emerald-800",
+    archiv: "bg-neutral-100 text-neutral-500",
+  };
+  const label =
+    wert === "live"
+      ? "Live auf Website"
+      : wert === "entwurf"
+        ? "Entwurf — nicht oeffentlich"
+        : wert.charAt(0).toUpperCase() + wert.slice(1);
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-medium ${map[wert] ?? "bg-neutral-100"}`}
+    >
+      {label}
+    </span>
   );
 }
 

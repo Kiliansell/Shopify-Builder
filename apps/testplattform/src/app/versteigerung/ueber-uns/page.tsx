@@ -7,10 +7,10 @@ export default async function UeberUns() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-20">
-      <div className="text-xs uppercase tracking-[0.25em] text-gold-500">
+      <div className="text-xs uppercase tracking-[0.25em] text-ziegler_blau-500">
         Das Haus
       </div>
-      <h1 className="mt-3 font-serif text-5xl leading-tight text-ink-300">
+      <h1 className="mt-3  text-5xl leading-tight text-ink-300">
         Seit 1973 werten wir, <br />
         was andere zurücklassen.
       </h1>
@@ -21,12 +21,12 @@ export default async function UeberUns() {
         die fair und transparent trennen müssen.
       </p>
 
-      <div className="mt-16 grid gap-12 border-t border-paper-200 pt-16 md:grid-cols-2">
+      <div className="mt-16 grid gap-12 border-t border-paper-300 pt-16 md:grid-cols-2">
         <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-gold-500">
+          <div className="text-xs uppercase tracking-[0.2em] text-ziegler_blau-500">
             Öffentliche Bestellung
           </div>
-          <h2 className="mt-2 font-serif text-3xl text-ink-300">
+          <h2 className="mt-2  text-3xl text-ink-300">
             Jürgen Oliver Ziegler
           </h2>
           <p className="mt-4 leading-relaxed text-ink-100/75">
@@ -36,10 +36,10 @@ export default async function UeberUns() {
           </p>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-gold-500">
+          <div className="text-xs uppercase tracking-[0.2em] text-ziegler_blau-500">
             Kontakt
           </div>
-          <h2 className="mt-2 font-serif text-3xl text-ink-300">
+          <h2 className="mt-2  text-3xl text-ink-300">
             Sprechen Sie uns an.
           </h2>
           <div className="mt-4 space-y-1 text-ink-100/80">
@@ -50,7 +50,7 @@ export default async function UeberUns() {
             <div className="pt-3">Tel. {firma?.telefon}</div>
             <a
               href={`mailto:${firma?.email}`}
-              className="text-gold-500 hover:underline"
+              className="text-ziegler_blau-500 hover:underline"
             >
               {firma?.email}
             </a>
@@ -58,7 +58,7 @@ export default async function UeberUns() {
         </div>
       </div>
 
-      <div className="mt-20 grid grid-cols-3 gap-6 rounded-2xl bg-paper-100 p-10 text-center">
+      <div className="mt-20 grid grid-cols-3 gap-6 rounded-xl bg-paper-200 p-10 text-center">
         <Fakt n="50+" l="Jahre" />
         <Fakt n="1000+" l="Verwertungen pro Jahr" />
         <Fakt n="2" l="Kopf-Team" />
@@ -67,7 +67,7 @@ export default async function UeberUns() {
       <div className="mt-16 text-center">
         <Link
           href="/versteigerung/auktionen"
-          className="inline-flex items-center gap-2 rounded-full bg-ink-300 px-8 py-4 text-sm font-medium text-paper-50 transition hover:bg-gold-500"
+          className="inline-flex items-center gap-2 rounded-full bg-ink-300 px-8 py-4 text-sm font-medium text-paper-50 transition hover:bg-ziegler_blau-600"
         >
           Aktuelle Auktionen ansehen →
         </Link>
@@ -79,7 +79,7 @@ export default async function UeberUns() {
 function Fakt({ n, l }: { n: string; l: string }) {
   return (
     <div>
-      <div className="font-serif text-4xl text-ink-300">{n}</div>
+      <div className=" text-4xl text-ink-300">{n}</div>
       <div className="mt-2 text-xs uppercase tracking-[0.2em] text-ink-50">
         {l}
       </div>

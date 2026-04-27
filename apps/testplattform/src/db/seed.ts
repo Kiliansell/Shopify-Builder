@@ -88,6 +88,7 @@ async function seed() {
       stilllegungswert: a.startwert ? a.startwert * 0.6 : null,
       fortfuehrungswert: a.startwert ? a.startwert * 1.2 : null,
       steuersatz: 19,
+      sichtbarkeit: "live",
     });
   }
 
@@ -109,6 +110,7 @@ async function seed() {
       fortfuehrungswert: 1500,
       steuersatz: 19,
       ist_fahrzeug: true,
+      sichtbarkeit: "live",
     })
     .returning();
 
@@ -139,6 +141,7 @@ async function seed() {
       stilllegungswert: 20,
       fortfuehrungswert: 60,
       steuersatz: 19,
+      sichtbarkeit: "live",
     })
     .returning();
 
@@ -159,6 +162,7 @@ async function seed() {
       stilllegungswert: 60,
       fortfuehrungswert: 180,
       steuersatz: 19,
+      sichtbarkeit: "live",
     })
     .returning();
 
@@ -199,6 +203,7 @@ async function seed() {
       fortfuehrungswert: 25000,
       steuersatz: 19,
       ist_fahrzeug: true,
+      sichtbarkeit: "live",
     })
     .returning();
 

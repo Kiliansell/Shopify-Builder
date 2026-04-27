@@ -5,27 +5,39 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Bestehende Intranet-Tokens (Backwards-Compat)
         ziegler: {
           dark: "#1a1a1a",
-          accent: "#b8860b",
-          muted: "#f5f5f0",
+          accent: "#3556B8",
+          muted: "#f5f5f5",
         },
+        // Neutrals fuer die oeffentliche Site
         paper: {
-          50: "#fbfaf7",
-          100: "#f5f2ea",
-          200: "#e9e4d6",
+          50: "#ffffff",
+          100: "#fafafb",
+          200: "#f1f2f4",
+          300: "#e4e6ea",
         },
         ink: {
-          50: "#4a4a4a",
-          100: "#2b2b2b",
-          200: "#1a1a1a",
-          300: "#0f0f0f",
+          50: "#5d6675",
+          100: "#3a4150",
+          200: "#1f242e",
+          300: "#0c0e13",
         },
-        gold: {
-          100: "#f4ecd8",
-          400: "#c99b2c",
-          500: "#b8860b",
-          600: "#9a6f08",
+        // Ziegler-Blau (aus Screenshot extrahiert)
+        // Hauptverlauf des Headers: ~#5170D0 -> ~#2E47A8
+        // Pfeil im Logo: ~#3556B8
+        ziegler_blau: {
+          50: "#eef2fb",
+          100: "#dde5f7",
+          200: "#b3c2ee",
+          300: "#7e93de",
+          400: "#5170D0",
+          500: "#3556B8",
+          600: "#2E47A8",
+          700: "#243a8a",
+          800: "#1c2e6e",
+          900: "#152352",
         },
       },
       fontFamily: {

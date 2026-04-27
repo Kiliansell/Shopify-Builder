@@ -65,6 +65,11 @@ export const artikel = sqliteTable("artikel", {
   neupreis: real("neupreis"),
   steuersatz: real("steuersatz").default(19),
   ist_fahrzeug: integer("ist_fahrzeug", { mode: "boolean" }).default(false),
+  // Sichtbarkeit auf der oeffentlichen Website
+  // entwurf = nur intern, vorschau = via signiertem Link, live = oeffentlich
+  sichtbarkeit: text("sichtbarkeit", {
+    enum: ["entwurf", "vorschau", "live", "archiv"],
+  }).notNull().default("entwurf"),
   created_at: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
@@ -155,6 +160,10 @@ export const auktion = sqliteTable("auktion", {
   status: text("status", {
     enum: ["geplant", "laeuft", "beendet", "abgebrochen"],
   }).notNull().default("geplant"),
+  // Bei status=beendet: wer hat gewonnen, zu welchem Preis, wann zugeschlagen
+  gewinner_kunde_id: integer("gewinner_kunde_id").references(() => kunde.id),
+  zuschlag_preis: real("zuschlag_preis"),
+  zuschlag_am: integer("zuschlag_am", { mode: "timestamp" }),
 });
 
 // ---------- Gebot ----------

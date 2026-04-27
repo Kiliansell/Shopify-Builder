@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { eur } from "@/lib/format";
@@ -8,8 +8,7 @@ import { LiveCountdown } from "./countdown";
 export const dynamic = "force-dynamic";
 
 export default async function VersteigerungHome() {
-  // Aktive Auktionen fuer Highlight- und Grid-Sektion
-  const jetzt = new Date();
+  const jetzt = Math.floor(Date.now() / 1000);
   const aktive = await db
     .select({
       auktion_id: schema.auktion.id,
@@ -26,11 +25,13 @@ export default async function VersteigerungHome() {
     .from(schema.auktion)
     .innerJoin(schema.artikel, eq(schema.auktion.artikel_id, schema.artikel.id))
     .where(
-      sql`${schema.auktion.status} = 'laeuft' AND ${schema.auktion.end_ts} > ${Math.floor(jetzt.getTime() / 1000)}`,
+      sql`${schema.auktion.status} = 'laeuft'
+          AND ${schema.auktion.end_ts} > ${jetzt}
+          AND ${schema.artikel.sichtbarkeit} = 'live'`,
     )
     .orderBy(asc(schema.auktion.end_ts));
 
-  const hero = aktive.find((a) => a.ist_fahrzeug) ?? aktive[0];
+  const hero = aktive.find((a) => a.ist_fahrzeug && a.foto_id) ?? aktive.find((a) => a.foto_id) ?? aktive[0];
   const highlights = aktive.slice(0, 3);
   const rest = aktive.slice(0, 12);
 
@@ -43,21 +44,24 @@ export default async function VersteigerungHome() {
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-paper-200 bg-paper-100">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-6 py-20 lg:grid-cols-12 lg:py-28">
+      {/* Hero — voller Blau-Gradient mit Bild rechts */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-ziegler_blau-500 via-ziegler_blau-600 to-ziegler_blau-800 text-white">
+        {/* Decoration */}
+        <div className="absolute -top-32 right-0 h-[600px] w-[600px] rounded-full bg-ziegler_blau-400/30 blur-3xl"></div>
+        <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-ziegler_blau-700/40 blur-3xl"></div>
+
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-12 lg:py-24">
           <div className="lg:col-span-6">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-gold-500/30 bg-gold-100/60 px-4 py-1.5 text-xs uppercase tracking-[0.25em] text-gold-600">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold-500"></span>
-              Aktuell live
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.25em] text-white/90 backdrop-blur">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
+              {statistik?.aktive_auktionen ?? 0} Auktionen live
             </div>
-            <h1 className="font-serif text-5xl leading-[1.05] text-ink-300 md:text-6xl lg:text-[68px]">
-              Werte, die <em className="text-gold-500 not-italic">bleiben.</em>
+            <h1 className="text-5xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
+              Werte fair
               <br />
-              Preise, die <em className="text-gold-500 not-italic">fair</em>{" "}
-              entstehen.
+              versteigern.
             </h1>
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-ink-100/80">
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-white/80">
               Öffentliche Versteigerungen aus Insolvenzmassen. Fahrzeuge,
               Maschinen, Betriebsausstattung — geprüft durch einen vereidigten
               Sachverständigen, transparent online ersteigerbar.
@@ -65,53 +69,33 @@ export default async function VersteigerungHome() {
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <Link
                 href="/versteigerung/auktionen"
-                className="group inline-flex items-center gap-2 rounded-full bg-ink-300 px-8 py-4 text-sm font-medium text-paper-50 transition hover:bg-gold-500"
+                className="group inline-flex items-center gap-2 rounded-md bg-white px-7 py-3.5 text-sm font-semibold text-ziegler_blau-700 transition hover:bg-paper-200"
               >
                 Alle Auktionen ansehen
                 <span className="transition group-hover:translate-x-1">→</span>
               </Link>
               <Link
-                href="/versteigerung/ueber-uns"
-                className="text-sm font-medium text-ink-100 underline-offset-4 hover:text-gold-500 hover:underline"
+                href="/versteigerung/registrieren"
+                className="inline-flex items-center gap-2 rounded-md border border-white/30 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
               >
-                Mehr über das Haus
+                Als Bieter anmelden
               </Link>
             </div>
 
-            <div className="mt-14 flex gap-10 border-t border-paper-200 pt-8">
-              <div>
-                <div className="font-serif text-3xl text-ink-300">
-                  {statistik?.aktive_auktionen ?? 0}
-                </div>
-                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-ink-50">
-                  Live-Auktionen
-                </div>
-              </div>
-              <div>
-                <div className="font-serif text-3xl text-ink-300">
-                  {statistik?.artikel_gesamt ?? 0}
-                </div>
-                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-ink-50">
-                  Artikel im Bestand
-                </div>
-              </div>
-              <div>
-                <div className="font-serif text-3xl text-ink-300">1973</div>
-                <div className="mt-1 text-xs uppercase tracking-[0.2em] text-ink-50">
-                  Gegründet
-                </div>
-              </div>
+            <div className="mt-14 grid grid-cols-3 gap-4 border-t border-white/15 pt-8">
+              <Stat n={statistik?.aktive_auktionen ?? 0} l="Live-Auktionen" />
+              <Stat n={statistik?.artikel_gesamt ?? 0} l="Artikel im Bestand" />
+              <Stat n="50+" l="Jahre Erfahrung" />
             </div>
           </div>
 
-          {/* Hero-Artikel */}
           {hero && (
             <div className="lg:col-span-6">
               <Link
                 href={`/versteigerung/auktionen/${hero.auktion_id}`}
                 className="group block"
               >
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-ink-300">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink-300 shadow-2xl ring-1 ring-white/10">
                   {hero.foto_id ? (
                     <img
                       src={`/api/fotos/${hero.foto_id}/file`}
@@ -119,28 +103,28 @@ export default async function VersteigerungHome() {
                       className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-paper-100/40">
-                      <span className="font-serif text-6xl">ZT</span>
+                    <div className="flex h-full items-center justify-center text-white/30">
+                      <span className="text-6xl font-extrabold">ZIEGLER</span>
                     </div>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-300/95 via-ink-300/50 to-transparent p-8 text-paper-100">
-                    <div className="text-xs uppercase tracking-[0.25em] text-gold-400">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-300/95 via-ink-300/40 to-transparent p-7">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-ziegler_blau-300">
                       Position {hero.global_pos_nr}
                       {hero.ist_fahrzeug ? " · Fahrzeug" : ""}
                     </div>
-                    <h2 className="mt-2 font-serif text-3xl leading-tight">
+                    <h2 className="mt-2 text-2xl font-bold leading-tight text-white md:text-3xl">
                       {hero.bezeichnung}
                     </h2>
-                    <div className="mt-6 flex items-end justify-between">
+                    <div className="mt-5 flex items-end justify-between">
                       <div>
-                        <div className="text-[11px] uppercase tracking-[0.2em] text-paper-100/60">
+                        <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/60">
                           Aktuelles Gebot
                         </div>
-                        <div className="mt-1 font-serif text-3xl">
+                        <div className="mt-1 text-2xl font-bold text-white">
                           {eur(hero.aktuelles_gebot ?? hero.startpreis)}
                         </div>
                       </div>
-                      <div className="rounded-full bg-paper-50/10 px-4 py-2 text-sm backdrop-blur">
+                      <div className="rounded-md bg-ziegler_blau-500 px-3 py-1.5 text-sm font-medium text-white">
                         <LiveCountdown endMs={hero.end_ts.getTime()} />
                       </div>
                     </div>
@@ -155,18 +139,18 @@ export default async function VersteigerungHome() {
       {/* Highlights */}
       {highlights.length > 1 && (
         <section className="mx-auto max-w-7xl px-6 py-20">
-          <div className="mb-10 flex items-end justify-between">
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-xs uppercase tracking-[0.25em] text-gold-500">
+              <div className="text-xs font-semibold uppercase tracking-[0.25em] text-ziegler_blau-500">
                 Kuratiert
               </div>
-              <h2 className="mt-3 font-serif text-4xl text-ink-300">
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-ink-300 md:text-4xl">
                 Highlight-Auktionen
               </h2>
             </div>
             <Link
               href="/versteigerung/auktionen"
-              className="hidden text-sm font-medium text-ink-100 hover:text-gold-500 md:inline"
+              className="hidden text-sm font-medium text-ziegler_blau-600 hover:underline md:inline"
             >
               Alle ansehen →
             </Link>
@@ -180,14 +164,16 @@ export default async function VersteigerungHome() {
       )}
 
       {/* Kategorien-Band */}
-      <section className="bg-ink-300 py-20 text-paper-100">
+      <section className="bg-paper-200 py-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-12 max-w-2xl">
-            <div className="text-xs uppercase tracking-[0.25em] text-gold-400">
+            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-ziegler_blau-500">
               Unser Programm
             </div>
-            <h2 className="mt-3 font-serif text-4xl">Drei Schwerpunkte</h2>
-            <p className="mt-4 text-paper-100/70">
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-ink-300 md:text-4xl">
+              Drei Schwerpunkte
+            </h2>
+            <p className="mt-4 text-ink-100">
               Seit über 50 Jahren auf den Kern unseres Handwerks fokussiert —
               und offen für alles, was über eine Insolvenzmasse zu uns kommt.
             </p>
@@ -201,7 +187,7 @@ export default async function VersteigerungHome() {
             />
             <KategorieKachel
               titel="Maschinen"
-              untertitel="Produktion, Baugewerbe, Garten &amp; Landschaft"
+              untertitel="Produktion, Bau, Garten &amp; Landschaft"
               beschreibung="Werkstatt, Abbruchhämmer, Rammer, Kompressoren — geprüft und dokumentiert."
               href="/versteigerung/auktionen?kategorie=maschinen"
             />
@@ -219,22 +205,22 @@ export default async function VersteigerungHome() {
       <section className="mx-auto max-w-7xl px-6 py-20">
         <div className="mb-10 flex items-end justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.25em] text-gold-500">
+            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-ziegler_blau-500">
               Live
             </div>
-            <h2 className="mt-3 font-serif text-4xl text-ink-300">
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-ink-300 md:text-4xl">
               Aktuelle Auktionen
             </h2>
           </div>
           <Link
             href="/versteigerung/auktionen"
-            className="text-sm font-medium text-ink-100 hover:text-gold-500"
+            className="text-sm font-medium text-ziegler_blau-600 hover:underline"
           >
             Alle {aktive.length} ansehen →
           </Link>
         </div>
         {rest.length === 0 ? (
-          <div className="rounded-2xl border border-paper-200 bg-paper-100/40 py-16 text-center text-ink-50">
+          <div className="rounded-xl border border-paper-300 bg-white py-16 text-center text-ink-50">
             Aktuell laufen keine Auktionen. Bitte in Kürze wieder vorbeischauen.
           </div>
         ) : (
@@ -247,17 +233,21 @@ export default async function VersteigerungHome() {
       </section>
 
       {/* Vertrauens-Sektion */}
-      <section className="border-t border-paper-200 bg-paper-100 py-20">
+      <section className="bg-white py-20">
         <div className="mx-auto grid max-w-7xl gap-12 px-6 md:grid-cols-2">
           <div>
-            <div className="text-xs uppercase tracking-[0.25em] text-gold-500">
+            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-ziegler_blau-500">
               Vertrauen
             </div>
-            <h2 className="mt-3 font-serif text-4xl text-ink-300">
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-ink-300 md:text-4xl">
               Warum bei uns ersteigern?
             </h2>
+            <p className="mt-4 max-w-md text-ink-100">
+              Nicht jedes Auktionshaus arbeitet mit der Sorgfalt eines
+              vereidigten Sachverständigen. Wir schon.
+            </p>
           </div>
-          <div className="space-y-6 text-base leading-relaxed text-ink-100">
+          <div className="space-y-6">
             <Merkmal
               titel="Öffentlich bestellter Auktionator"
               text="Jürgen Oliver Ziegler ist von der IHK Nord Westfalen öffentlich bestellt und vereidigt — Zuschlag und Protokoll haben Urkundenqualität."
@@ -274,6 +264,17 @@ export default async function VersteigerungHome() {
         </div>
       </section>
     </>
+  );
+}
+
+function Stat({ n, l }: { n: string | number; l: string }) {
+  return (
+    <div>
+      <div className="text-3xl font-bold text-white">{n}</div>
+      <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-white/60">
+        {l}
+      </div>
+    </div>
   );
 }
 
@@ -295,9 +296,9 @@ function AuktionCard({
   return (
     <Link
       href={`/versteigerung/auktionen/${a.auktion_id}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-paper-200 bg-paper-50 transition hover:border-gold-500 hover:shadow-xl"
+      className="group flex flex-col overflow-hidden rounded-xl border border-paper-300 bg-white transition hover:-translate-y-0.5 hover:border-ziegler_blau-400 hover:shadow-lg"
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-paper-100">
+      <div className="relative aspect-[4/3] overflow-hidden bg-paper-200">
         {a.foto_id ? (
           <img
             src={`/api/fotos/${a.foto_id}/file`}
@@ -305,31 +306,36 @@ function AuktionCard({
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center font-serif text-5xl text-ink-50/30">
-            ZT
+          <div className="flex h-full items-center justify-center text-3xl font-extrabold text-ink-50/30">
+            ZIEGLER
           </div>
         )}
-        <div className="absolute left-3 top-3 rounded-full bg-paper-50/95 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-ink-200 backdrop-blur">
+        <div className="absolute left-3 top-3 rounded-md bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-ink-200 backdrop-blur">
           Pos {a.global_pos_nr}
         </div>
-        <div className="absolute right-3 top-3 rounded-full bg-ink-300/80 px-3 py-1 text-xs text-paper-100 backdrop-blur">
+        <div className="absolute right-3 top-3 rounded-md bg-ziegler_blau-600/95 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
           <LiveCountdown endMs={a.end_ts.getTime()} />
         </div>
       </div>
       <div className="flex flex-1 flex-col p-5">
-        <h3 className="line-clamp-2 font-serif text-lg leading-snug text-ink-300">
+        <h3 className="line-clamp-2 text-base font-semibold leading-snug text-ink-300 group-hover:text-ziegler_blau-600">
           {a.bezeichnung}
         </h3>
         {a.zusatzinfo && (
           <p className="mt-1 line-clamp-1 text-sm text-ink-50">{a.zusatzinfo}</p>
         )}
-        <div className="mt-auto pt-5">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-ink-50">
-            Aktuelles Gebot
+        <div className="mt-auto flex items-end justify-between pt-5">
+          <div>
+            <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-50">
+              Aktuelles Gebot
+            </div>
+            <div className="mt-1 text-xl font-bold text-ink-300">
+              {eur(a.aktuelles_gebot ?? a.startpreis)}
+            </div>
           </div>
-          <div className="mt-1 font-serif text-2xl text-ink-300">
-            {eur(a.aktuelles_gebot ?? a.startpreis)}
-          </div>
+          <span className="text-xs font-semibold text-ziegler_blau-600 transition group-hover:translate-x-1">
+            Bieten →
+          </span>
         </div>
       </div>
     </Link>
@@ -350,16 +356,16 @@ function KategorieKachel({
   return (
     <Link
       href={href}
-      className="group block rounded-2xl border border-white/10 bg-white/[0.03] p-8 transition hover:border-gold-400 hover:bg-white/[0.06]"
+      className="group block rounded-xl border border-paper-300 bg-white p-8 transition hover:-translate-y-1 hover:border-ziegler_blau-400 hover:shadow-lg"
     >
-      <div className="text-xs uppercase tracking-[0.25em] text-gold-400">
+      <div className="text-xs font-semibold uppercase tracking-[0.25em] text-ziegler_blau-500">
         {untertitel}
       </div>
-      <h3 className="mt-3 font-serif text-3xl">{titel}</h3>
-      <p className="mt-4 text-sm leading-relaxed text-paper-100/70">
-        {beschreibung}
-      </p>
-      <div className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-gold-400 transition group-hover:gap-3">
+      <h3 className="mt-3 text-2xl font-bold tracking-tight text-ink-300 md:text-3xl">
+        {titel}
+      </h3>
+      <p className="mt-4 text-sm leading-relaxed text-ink-100">{beschreibung}</p>
+      <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-ziegler_blau-600 transition group-hover:gap-3">
         Entdecken <span>→</span>
       </div>
     </Link>
@@ -368,9 +374,14 @@ function KategorieKachel({
 
 function Merkmal({ titel, text }: { titel: string; text: string }) {
   return (
-    <div>
-      <h3 className="font-serif text-xl text-ink-300">{titel}</h3>
-      <p className="mt-2 text-ink-100/75">{text}</p>
+    <div className="flex gap-4">
+      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ziegler_blau-100 text-ziegler_blau-600">
+        ✓
+      </div>
+      <div>
+        <h3 className="font-semibold text-ink-300">{titel}</h3>
+        <p className="mt-1 text-ink-100">{text}</p>
+      </div>
     </div>
   );
 }

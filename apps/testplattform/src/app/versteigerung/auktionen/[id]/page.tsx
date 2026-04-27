@@ -9,6 +9,7 @@ import { berechneNeueEndzeit } from "@/lib/auction";
 import { PreciseCountdown } from "../../countdown";
 import { kategorieVon } from "@/lib/public-helpers";
 import { GalerieClient } from "./galerie";
+import { bieterPseudonym } from "@/lib/lifecycle";
 
 export const dynamic = "force-dynamic";
 
@@ -105,14 +106,24 @@ export default async function AuktionDetail({
   const minGebot = (auktion.aktuelles_gebot ?? auktion.startpreis) + 10;
   const kategorie = kategorieVon(artikel.bezeichnung, artikel.ist_fahrzeug ?? false);
 
+  const istBeendet = auktion.status === "beendet";
+  let gewinner: { id: number; bietername: string | null } | null = null;
+  if (istBeendet && auktion.gewinner_kunde_id) {
+    const [g] = await db
+      .select({ id: schema.kunde.id, bietername: schema.kunde.bietername })
+      .from(schema.kunde)
+      .where(eq(schema.kunde.id, auktion.gewinner_kunde_id));
+    gewinner = g ?? null;
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-10">
       <nav className="mb-8 flex items-center gap-2 text-sm text-ink-50">
-        <Link href="/versteigerung" className="hover:text-gold-500">
+        <Link href="/versteigerung" className="hover:text-ziegler_blau-500">
           Home
         </Link>
         <span>/</span>
-        <Link href="/versteigerung/auktionen" className="hover:text-gold-500">
+        <Link href="/versteigerung/auktionen" className="hover:text-ziegler_blau-500">
           Auktionen
         </Link>
         <span>/</span>
@@ -123,7 +134,7 @@ export default async function AuktionDetail({
         {/* Linke Spalte: Gallerie + Beschreibung */}
         <div className="lg:col-span-7">
           <div className="mb-4 flex items-center gap-3">
-            <span className="rounded-full bg-paper-100 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-ink-100">
+            <span className="rounded-full bg-paper-200 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-ink-100">
               {kategorie}
             </span>
             <span className="text-xs text-ink-50">
@@ -139,7 +150,7 @@ export default async function AuktionDetail({
             titel={artikel.bezeichnung}
           />
 
-          <h1 className="mt-10 font-serif text-5xl leading-[1.1] text-ink-300">
+          <h1 className="mt-10  text-5xl leading-[1.1] text-ink-300">
             {artikel.bezeichnung}
           </h1>
           {artikel.zusatzinfo && (
@@ -149,7 +160,7 @@ export default async function AuktionDetail({
           {/* Beschreibung */}
           {artikel.langtext && (
             <section className="mt-12">
-              <h2 className="border-b border-paper-200 pb-3 font-serif text-2xl text-ink-300">
+              <h2 className="border-b border-paper-300 pb-3  text-2xl text-ink-300">
                 Beschreibung
               </h2>
               <pre className="mt-6 whitespace-pre-wrap font-sans text-base leading-relaxed text-ink-100">
@@ -161,7 +172,7 @@ export default async function AuktionDetail({
           {/* Fahrzeugdaten */}
           {fahrzeug && (
             <section className="mt-12">
-              <h2 className="border-b border-paper-200 pb-3 font-serif text-2xl text-ink-300">
+              <h2 className="border-b border-paper-300 pb-3  text-2xl text-ink-300">
                 Fahrzeugdaten
               </h2>
               <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 text-sm md:grid-cols-3">
@@ -176,25 +187,25 @@ export default async function AuktionDetail({
           )}
 
           {/* Hinweise */}
-          <section className="mt-12 rounded-2xl border border-paper-200 bg-paper-100 p-8">
-            <h3 className="font-serif text-xl text-ink-300">Wichtige Hinweise</h3>
+          <section className="mt-12 rounded-xl border border-paper-300 bg-paper-200 p-8">
+            <h3 className=" text-xl text-ink-300">Wichtige Hinweise</h3>
             <ul className="mt-4 space-y-3 text-sm text-ink-100">
               <li className="flex gap-3">
-                <span className="text-gold-500">◆</span>
+                <span className="text-ziegler_blau-500">◆</span>
                 Der Verkauf erfolgt unter Ausschluss jeglicher Gewährleistung
                 für Sachmängel (§§ 3 Abs. 8, 4 Abs. 1 S. 3 AGB).
               </li>
               <li className="flex gap-3">
-                <span className="text-gold-500">◆</span>
+                <span className="text-ziegler_blau-500">◆</span>
                 Auf den Zuschlagspreis wird ein Aufgeld von 18 % (zzgl. MwSt.)
                 erhoben.
               </li>
               <li className="flex gap-3">
-                <span className="text-gold-500">◆</span>
+                <span className="text-ziegler_blau-500">◆</span>
                 Herausgabe erst nach Zahlungseingang auf unserem Konto.
               </li>
               <li className="flex gap-3">
-                <span className="text-gold-500">◆</span>
+                <span className="text-ziegler_blau-500">◆</span>
                 Automatische Verlängerung: Bei Gebot in den letzten 2 Min.
                 verlängert sich die Auktion um 1–2 Minuten.
               </li>
@@ -202,39 +213,71 @@ export default async function AuktionDetail({
           </section>
         </div>
 
-        {/* Rechte Spalte: Gebot-Panel */}
+        {/* Rechte Spalte: Gebot-Panel oder Zuschlag */}
         <div className="lg:col-span-5">
           <div className="sticky top-28 space-y-6">
-            <div className="rounded-2xl bg-ink-300 p-8 text-paper-100">
-              <div className="text-[11px] uppercase tracking-[0.25em] text-gold-400">
-                Aktuelles Gebot
+            {istBeendet ? (
+              <div className="rounded-xl bg-gradient-to-br from-ziegler_blau-500 to-ziegler_blau-700 p-8 text-white shadow-xl">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-ziegler_blau-100">
+                  Auktion beendet · Zuschlag erteilt
+                </div>
+                <div className="mt-3 text-5xl font-bold">
+                  {eur(auktion.zuschlag_preis ?? auktion.aktuelles_gebot ?? auktion.startpreis)}
+                </div>
+                <div className="mt-6 border-t border-white/15 pt-6">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-white/60">
+                    Verkauft an
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold">
+                    {bieterPseudonym(
+                      auktion.gewinner_kunde_id,
+                      gewinner?.bietername ?? null,
+                    )}
+                  </div>
+                  {auktion.zuschlag_am && (
+                    <div className="mt-2 text-xs text-white/60">
+                      Zuschlag am {datumZeit(auktion.zuschlag_am)}
+                    </div>
+                  )}
+                </div>
+                {!auktion.gewinner_kunde_id && (
+                  <div className="mt-6 rounded-md bg-white/10 px-3 py-2 text-sm">
+                    Kein Mindestgebot erreicht.
+                  </div>
+                )}
               </div>
-              <div className="mt-2 font-serif text-5xl">
-                {eur(auktion.aktuelles_gebot ?? auktion.startpreis)}
-              </div>
-              <div className="mt-1 text-sm text-paper-100/60">
-                Startpreis: {eur(auktion.startpreis)}
-              </div>
+            ) : (
+              <div className="rounded-xl bg-ink-300 p-8 text-paper-100">
+                <div className="text-[11px] uppercase tracking-[0.25em] text-ziegler_blau-300">
+                  Aktuelles Gebot
+                </div>
+                <div className="mt-2 text-5xl font-bold">
+                  {eur(auktion.aktuelles_gebot ?? auktion.startpreis)}
+                </div>
+                <div className="mt-1 text-sm text-paper-100/60">
+                  Startpreis: {eur(auktion.startpreis)}
+                </div>
 
-              <div className="mt-8 border-t border-white/10 pt-8">
-                <div className="text-[11px] uppercase tracking-[0.25em] text-paper-100/60">
-                  Endet in
-                </div>
-                <div className="mt-3">
-                  <PreciseCountdown endMs={auktion.end_ts.getTime()} />
-                </div>
-                <div className="mt-3 text-xs text-paper-100/50">
-                  {datumZeit(auktion.end_ts)}
+                <div className="mt-8 border-t border-white/10 pt-8">
+                  <div className="text-[11px] uppercase tracking-[0.25em] text-paper-100/60">
+                    Endet in
+                  </div>
+                  <div className="mt-3">
+                    <PreciseCountdown endMs={auktion.end_ts.getTime()} />
+                  </div>
+                  <div className="mt-3 text-xs text-paper-100/50">
+                    {datumZeit(auktion.end_ts)}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {auktion.status === "laeuft" && (
               <form
                 action={gebotAbgeben}
-                className="rounded-2xl border border-paper-200 bg-paper-50 p-8"
+                className="rounded-xl border border-paper-300 bg-white p-8"
               >
-                <h3 className="font-serif text-xl text-ink-300">
+                <h3 className=" text-xl text-ink-300">
                   Gebot abgeben
                 </h3>
                 <input type="hidden" name="auktion_id" value={auktion.id} />
@@ -246,7 +289,7 @@ export default async function AuktionDetail({
                     name="kunden_nr"
                     required
                     placeholder="z. B. 22478/10047"
-                    className="w-full rounded-lg border border-paper-200 bg-paper-50 px-4 py-3 outline-none focus:border-gold-500"
+                    className="w-full rounded-lg border border-paper-300 bg-white px-4 py-3 outline-none focus:border-ziegler_blau-500"
                   />
                 </label>
                 <label className="mt-4 block text-sm">
@@ -260,7 +303,7 @@ export default async function AuktionDetail({
                     min={minGebot}
                     required
                     placeholder={String(minGebot)}
-                    className="w-full rounded-lg border border-paper-200 bg-paper-50 px-4 py-3 font-mono text-lg tabular-nums outline-none focus:border-gold-500"
+                    className="w-full rounded-lg border border-paper-300 bg-white px-4 py-3 font-mono text-lg tabular-nums outline-none focus:border-ziegler_blau-500"
                   />
                   <span className="mt-1 block text-xs text-ink-50">
                     Mindestgebot: {eur(minGebot)}
@@ -268,7 +311,7 @@ export default async function AuktionDetail({
                 </label>
                 <button
                   type="submit"
-                  className="mt-6 w-full rounded-full bg-gold-500 py-4 text-sm font-semibold text-paper-50 transition hover:bg-gold-600"
+                  className="mt-6 w-full rounded-full bg-ziegler_blau-600 py-4 text-sm font-semibold text-paper-50 transition hover:bg-ziegler_blau-700"
                 >
                   Gebot bestätigen
                 </button>
@@ -276,7 +319,7 @@ export default async function AuktionDetail({
                   Mit Abgabe des Gebots akzeptieren Sie die{" "}
                   <Link
                     href="/versteigerung/agb"
-                    className="underline hover:text-gold-500"
+                    className="underline hover:text-ziegler_blau-700"
                   >
                     Versteigerungsbedingungen
                   </Link>
@@ -287,8 +330,8 @@ export default async function AuktionDetail({
 
             {/* Gebots-Historie */}
             {gebote.length > 0 && (
-              <div className="rounded-2xl border border-paper-200 bg-paper-50 p-6">
-                <h3 className="font-serif text-lg text-ink-300">
+              <div className="rounded-xl border border-paper-300 bg-white p-6">
+                <h3 className=" text-lg text-ink-300">
                   Letzte Gebote
                 </h3>
                 <ul className="mt-4 divide-y divide-paper-200 text-sm">
